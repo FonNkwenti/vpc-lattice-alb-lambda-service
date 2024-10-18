@@ -15,8 +15,7 @@ Before you begin, ensure you have the following:
 
 ## Project Structure
 ```bash
-# |- service_producer/
-# |- cross_account_service_consumer/
+
 ```
 ---
 ## Getting Started
