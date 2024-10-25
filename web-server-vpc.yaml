@@ -1,0 +1,190 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template for creating a Web Server VPC with public and private subnets, EC2 instances, and a public ALB.
+
+Parameters:
+  VPCName:
+    Type: String
+    Default: WebServerVPC
+    Description: Name of the VPC.
+  
+  CIDRBlock:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC.
+    
+  PublicSubnet1CIDR:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: CIDR block for public subnet 1.
+
+  PrivateSubnet1CIDR:
+    Type: String
+    Default: 10.0.2.0/24
+    Description: CIDR block for private subnet 1.
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    Description: EC2 instance type.
+
+  # KeyName:
+  #   Type: AWS::EC2::KeyPair::KeyName
+  #   Description: Name of an existing EC2 KeyPair to enable SSH access to the instances.
+  #   Default: default-eu1
+
+Resources:
+  # VPC
+  WebServerVPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref CIDRBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref VPCName
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      VpcId: !Ref WebServerVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnet
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref WebServerVPC
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  # Private Subnet
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref WebServerVPC
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1
+
+  # Route Table for Public Subnet
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref WebServerVPC
+      Tags:
+      - Key: Name
+        Value: PublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security Group for ALB and EC2 Instances
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP and SSH access
+      VpcId: !Ref WebServerVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  # Launch EC2 Instances in Private Subnet
+  # WebServerInstance:
+  #   Type: AWS::EC2::Instance
+  #   Properties:
+  #     InstanceType: !Ref InstanceType
+  #     KeyName: "default-eu1"
+  #     # KeyName: !Ref KeyName
+  #     SubnetId: !Ref PrivateSubnet1
+  #     SecurityGroupIds:
+  #       - !Ref WebServerSecurityGroup
+  #     ImageId: ami-00385a401487aefa4  
+  #     Tags:
+  #       - Key: Name
+  #         Value: WebServerInstance
+
+  # Application Load Balancer
+  # WebServerALB:
+  #   Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  #   Properties:
+  #     Name: WebServerALB
+  #     Scheme: internet-facing
+  #     Subnets:
+  #       - !Ref PublicSubnet1
+  #     SecurityGroups:
+  #       - !Ref WebServerSecurityGroup
+
+  # ALBTargetGroup:
+  #   Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  #   Properties:
+  #     Name: WebServerTargetGroup
+  #     VpcId: !Ref WebServerVPC
+  #     Port: 80
+  #     Protocol: HTTP
+  #     TargetType: instance
+  #     HealthCheckPath: /
+  #     HealthCheckIntervalSeconds: 30
+
+  # ALBListener:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     DefaultActions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref ALBTargetGroup
+  #     LoadBalancerArn: !Ref WebServerALB
+  #     Port: 80
+  #     Protocol: HTTP
+
+  # Register EC2 Instance to ALB Target Group
+  # InstanceTarget:
+  #   Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  #   Properties:
+  #     Targets:
+  #       - Id: !Ref WebServerInstance
+  #         Port: 80
+  #     TargetGroupArn: !Ref ALBTargetGroup
+
+Outputs:
+  WebServerVPCId:
+    Description: The ID of the Web Server VPC.
+    Value: !Ref WebServerVPC
+
+  PublicSubnet1Id:
+    Description: The ID of the Public Subnet.
+    Value: !Ref PublicSubnet1
+
+  PrivateSubnet1Id:
+    Description: The ID of the Private Subnet.
+    Value: !Ref PrivateSubnet1
+
+  # WebServerALBDNS:
+  #   Description: DNS name of the Application Load Balancer.
+  #   Value: !GetAtt WebServerALB.DNSName

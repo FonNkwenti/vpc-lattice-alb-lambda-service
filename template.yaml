@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Parent stack for deploying the VPC Lattice architecture.
+
+
+# Parameters:
+#   KeyName:
+#     Type: AWS::EC2::KeyPair::KeyName
+#     Description: Name of an existing EC2 KeyPair to enable SSH access to the EC2 instances
+
+
+Resources:
+  WebServerVPCStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./web-server-vpc.yaml
+      Parameters:
+        VPCName: "WebServerVPC"
+
+  # LambdaVPCServiceStack:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn: WebServerVPCStack
+  #   Properties:
+  #     TemplateURL: !Sub "file://lambda-vpc-lattice.yaml" # Local path
+  #     Parameters:
+  #       WebServerVpcId: !GetAtt WebServerVPCStack.Outputs.WebServerVpcId
+
+  # EC2VPCServiceStack:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn: LambdaVPCServiceStack
+  #   Properties:
+  #     TemplateURL: !Sub "file://ec2-vpc-lattice.yaml" # Local path
+  #     Parameters:
+  #       VPCId: !GetAtt WebServerVPCStack.Outputs.WebServerVpcId
+  #       PrivateSubnet1Id: !GetAtt WebServerVPCStack.Outputs.PrivateSubnet1Id
+  #       PrivateSubnet2Id: !GetAtt WebServerVPCStack.Outputs.PrivateSubnet2Id
+  #       InstanceType: "t2.micro"
+  #       KeyName: !Ref KeyName
+
+  # VPCNetworkStack:
+  #   Type: AWS::CloudFormation::Stack
+  #   DependsOn: EC2VPCServiceStack
+  #   Properties:
+  #     TemplateURL: !Sub "file://vpc-lattice-network.yaml" # Local path
+  #     Parameters:
+  #       WebServerVpcId: !GetAtt WebServerVPCStack.Outputs.WebServerVpcId
+  #       LambdaVpcId: !GetAtt LambdaVPCServiceStack.Outputs.LambdaVpcId
+  #       EC2VpcId: !GetAtt WebServerVPCStack.Outputs.WebServerVpcId
+  #       LambdaServiceArn: !GetAtt LambdaVPCServiceStack.Outputs.LambdaServiceArn
+  #       EC2ServiceArn: !GetAtt EC2VPCServiceStack.Outputs.EC2ServiceArn
+
+Outputs:
+  WebServerVpcId:
+    Description: ID of the Web Server VPC
+    Value: !GetAtt WebServerVPCStack.Outputs.WebServerVPCId
+  # LambdaServiceArn:
+  #   Description: ARN of the Lambda-based service
+  #   Value: !GetAtt LambdaVPCServiceStack.Outputs.LambdaServiceArn
+  # EC2ServiceArn:
+  #   Description: ARN of the EC2-based service
+  #   Value: !GetAtt EC2VPCServiceStack.Outputs.EC2ServiceArn
